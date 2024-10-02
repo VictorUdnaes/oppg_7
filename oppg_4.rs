@@ -100,3 +100,81 @@ impl HashTable {
         hash
     }
 }
+
+// Oppgave 2--------------------------------------------------------------------------------------------------------------------------
+use std::time::Instant;
+use rand::Rng;
+
+const N: usize = 12999959;
+
+fn main() {
+    let arr = generate_random_array(); // Allocate array on the heap using Vec
+    let mut hash_table = HashTable::new(vec![0; N]);
+
+    let start = Instant::now();
+    for i in 0..10000000 {
+        hash_table.put(arr[i]);
+    }
+    println!("time elapsed: {}ms", start.elapsed().as_millis());
+    println!("Load factor: {}", hash_table.load_factor());
+}
+
+pub struct HashTable {
+    pub table: Vec<usize>,
+    pub size: usize,
+    pub collisions: usize,
+}
+
+impl HashTable {
+    fn new(table: Vec<usize>) -> HashTable {
+        HashTable { table, size: N, collisions: 0 }
+    }
+
+    fn put(&mut self, k: usize) {
+        let mut location = Self::h1(&self, k);
+        if self.table[location] != 0 {
+            let step_size = Self::h2(&self, k);
+            self.collisions += 1;
+            while self.table[location] != 0 {
+                location = (location + step_size) % self.size;
+            }
+        }
+        self.table[location] = k;
+    }
+
+    fn get(&self, k: usize) -> usize {
+        let mut location = Self::h1(&self, k);
+        if self.table[location] != 0 {
+            self.table[location]
+        } else {
+            loop {
+                location = (Self::h2(&self, k) + location) % self.size;
+                if self.table[location] != 0 {
+                    return self.table[location]
+                }
+            }
+        }
+    }
+
+    fn h1(&self, key: usize) -> usize {
+        (key) % self.size
+    }
+
+    fn h2(&self, key: usize) -> usize {
+        1 + (key) % (self.size - 1)
+    }
+
+    fn load_factor(&self) -> f64 {
+        println!("Collisions: {}", self.collisions);
+        self.collisions as f64 / self.size as f64
+    }
+}
+
+fn generate_random_array() -> Vec<usize> {
+    let mut rng = rand::thread_rng();
+    let mut arr = vec![0; N];
+    for i in 0..10000000 {
+        arr[i] = rng.gen_range(0..1_000_000_000);
+    }
+    arr
+}
