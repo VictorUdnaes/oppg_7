@@ -267,8 +267,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		});
 
 		//tegn_poi();
-		//tegn_alt();
-		tegn_dijkstra();
+		tegn_alt();
+		//tegn_dijkstra();
 
 	} //konstruktør for vindu
 
@@ -278,23 +278,28 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	public void tegn_poi() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(graph.size()/2);
+		var node1 = graph.getNode(3367090);
+		var node2 = graph.getNode(3131924);
+		var node3 = graph.getNode(2815782);
+		var node4 = graph.getNode(5021924);
 		var marker1 = new MapMarkerDot(rutelag, node1.latitude, node1.longitude);
+		var marker2 = new MapMarkerDot(rutelag, node2.latitude, node2.longitude);
+		var marker3 = new MapMarkerDot(rutelag, node3.latitude, node3.longitude);
+		var marker4 = new MapMarkerDot(rutelag, node4.latitude, node4.longitude);
 		marker1.setBackColor(Color.RED);
+		marker2.setBackColor(Color.RED);
+		marker3.setBackColor(Color.RED);
+		marker4.setBackColor(Color.RED);
 		map().addMapMarker(marker1);
-		alt.findFurthestNodes(graph.getNode(graph.size()/2));
-		for (int i = 0; i < alt.getPoiMappingTable().size(); i++) {
-			var node = graph.getNode(alt.getPoiArrMapping(i));
-			var marker = new MapMarkerDot(areallag, node.latitude, node.longitude);
-			marker.setBackColor(Color.BLUE);
-			map().addMapMarker(marker);
-		}
+		map().addMapMarker(marker2);
+		map().addMapMarker(marker3);
+		map().addMapMarker(marker4);
 	}
 
 	public void tegn_dijkstra() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(992999);
-		var node2 = graph.getNode(5600223);
+		var node1 = graph.getNode(2948202);
+		var node2 = graph.getNode(7826348);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
@@ -340,8 +345,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	public void tegn_alt() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(992999);
-		var node2 = graph.getNode(5600223);
+		var node1 = graph.getNode(7826348);
+		var node2 = graph.getNode(2948202);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);

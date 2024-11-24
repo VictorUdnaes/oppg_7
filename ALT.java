@@ -7,6 +7,7 @@ public class ALT {
     private final PoiType[] pointsOfInterest;
     private final Long[][] poiDistanceArr;
     private final List<Map<Integer, Integer>> poiMappingTable = new ArrayList<>();
+    public static final int[] LANDMARK_IDS = {253181, 4897239, 4439984, 2620420};
     private static final String NODE_PATH = "noder_norden.txt";
     private static final String VERTICES_PATH = "kanter_norden.txt";
     private static final String POI_PATH = "interessepkt_norden.txt";
@@ -111,7 +112,7 @@ public class ALT {
                 // Calculate tentative gScore
                 long tentativeGScore = current.distanceFromStart + edge.driveTime;
 
-                if (tentativeGScore >= neighbor.distanceFromStart) {
+                if (tentativeGScore > neighbor.distanceFromStart) {
                     continue;  // This is not a better path
                 }
 
@@ -204,10 +205,6 @@ public class ALT {
         while (!queue.isEmpty()) {
             Node currentNode = queue.poll();
 
-            if (currentNode.visited) {
-                continue;
-            }
-
             if (currentNode.id == endNode.id) {
                 break;
             }
@@ -296,6 +293,7 @@ public class ALT {
 
     // FURTHEST NODES ------------------------------------------------------------------------------------------------------
     public void findFurthestNodes(Node startNode) {
+        /*
         if (startNode == null) {
             throw new IllegalArgumentException("Start node cannot be null");
         }
@@ -372,8 +370,14 @@ public class ALT {
             }
             if (furthestNode != null) {
                 furthestNodes[furthestNode.id] = furthestNode;
+                System.out.println("Furthest node " + (i + 1) + " found: " + furthestNode.id);
                 poiMappingTable.add(Map.of(i, furthestNode.id)); // Maps actual node id to poi id (0-3) for future reference
             }
+        }
+         */
+        for (int i = 0; i < 4; i++) {
+            Node furthestNode = graph.getNode(LANDMARK_IDS[i]);
+            poiMappingTable.add(Map.of(i, furthestNode.id));
         }
     }
 
