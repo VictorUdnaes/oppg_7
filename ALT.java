@@ -5,20 +5,24 @@ import java.util.concurrent.*;
 public class ALT {
     private final Graph graph;
     private final PoiType[] pointsOfInterest;
-    private final Long[][] poiDistanceArr;
+    private final Long[][] poiToDistanceArr;
+    private final Long[][] poiFromDistanceArr;
+
     private final List<Map<Integer, Integer>> poiMappingTable = new ArrayList<>();
     public static final int[] LANDMARK_IDS = {253181, 4897239, 4439984, 2620420};
     private static final String NODE_PATH = "noder_norden.txt";
     private static final String VERTICES_PATH = "kanter_norden.txt";
     private static final String POI_PATH = "interessepkt_norden.txt";
-    private static final String POI_DISTANCES_PATH = "poiDistances.txt";
+    private static final String POI_FROM_DISTANCES = "poiFromDistances.txt";
+    private static final String POI_TO_DISTANCES = "poiToDistances.txt";
 
     public ALT() {
         graph = new Graph(7956886, 17815613);
         pointsOfInterest = new PoiType[graph.size()];
         readValuesFromFiles();
-        poiDistanceArr = new Long[4][graph.size()];
-        for (Long[] row : poiDistanceArr) {
+        poiToDistanceArr = new Long[4][graph.size()];
+        poiFromDistanceArr = new Long[4][graph.size()];
+        for (Long[] row : poiToDistanceArr) {
             Arrays.fill(row, Long.MAX_VALUE);
         }
     }
@@ -41,8 +45,8 @@ public class ALT {
     }
 
     public void setupPOIDistances() {
-        findFurthestNodes(graph.getNode(graph.size()/2));
-        File file = new File(POI_DISTANCES_PATH);
+        findFurthestNodes(graph.getNode(graph.size() / 2));
+        File file = new File(POI_TO_DISTANCES);
         if (file.exists()) {
             System.out.println("POI distances already computed");
             readPOIDistancesFromFile();
@@ -148,19 +152,23 @@ public class ALT {
             Node landmark = graph.getNode(getPoiArrMapping(i));
             if (landmark == null) continue;
 
-            long distLandmarkToEnd = poiDistanceArr[i][end.id];
-            long distLandmarkToCurrent = poiDistanceArr[i][current.id];
+            // Distances from landmark to nodes and vice versa
+            long distLandmarkToEnd = poiToDistanceArr[i][end.id];
+            long distLandmarkToCurrent = poiToDistanceArr[i][current.id];
+            long distCurrentToLandmark = poiFromDistanceArr[i][current.id];
+            long distEndToLandmark = poiFromDistanceArr[i][end.id];
 
-            // If distances are valid
+            // Check validity of distances and apply triangle inequality in both directions
             if (distLandmarkToEnd != Long.MAX_VALUE && distLandmarkToCurrent != Long.MAX_VALUE) {
                 long estimate = Math.abs(distLandmarkToEnd - distLandmarkToCurrent);
-                if (estimate > maxEstimate) {
-                    maxEstimate = estimate;
-                }
+                maxEstimate = Math.max(maxEstimate, estimate);
+            }
+            if (distCurrentToLandmark != Long.MAX_VALUE && distEndToLandmark != Long.MAX_VALUE) {
+                long estimate = Math.abs(distCurrentToLandmark - distEndToLandmark);
+                maxEstimate = Math.max(maxEstimate, estimate);
             }
         }
 
-        // Return the max estimate
         return maxEstimate;
     }
 
@@ -245,7 +253,8 @@ public class ALT {
         System.out.println("nodes visited Dijkstra: " + closedSet.size());
         return path.toArray(new Node[0]);
     }
-// ---------------------------------------------------------------------------------------------------------------------
+
+    // ---------------------------------------------------------------------------------------------------------------------
     /*
     Separate Dijsktra's algorithm for preprocessing, only used to find distances between nodes and POIs and uses
     lists instead of the actual graph. This is to avoid race conditions when running the algorithm in parallel.
@@ -383,49 +392,52 @@ public class ALT {
 
     // -----------------------------------------------------------------------------------------------------------------
     public void computeDistancesFromLandmarks() {
-        int numNodes = graph.size();
-        int numPois = 4;
-        long[][] distanceResults = new long[numPois][numNodes];  // 2D array to store distances
+        for (int i = 0; i < 2; i++) {
+            int numNodes = graph.size();
+            int numPois = 4;
+            long[][] distanceResults = new long[numPois][numNodes];  // 2D array to store distances
 
-        // Create a thread pool to execute tasks in parallel
-        ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+            // Create a thread pool to execute tasks in parallel
+            ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
-        // Create a list to keep track of all submitted tasks
-        List<Future<Void>> futures = new ArrayList<>();
+            // Create a list to keep track of all submitted tasks
+            List<Future<Void>> futures = new ArrayList<>();
 
-        // Submit tasks for each POI
-        for (int poi = 0; poi < numPois; poi++) {
-            System.out.println("Submitting task for POI: " + poi);
-            Callable<Void> task = getVoidCallable(poi, distanceResults);
+            // Submit tasks for each POI
+            for (int poi = 0; poi < numPois; poi++) {
+                System.out.println("Submitting task for POI: " + poi);
+                Callable<Void> task = getVoidCallable(poi, distanceResults);
 
-            // Submit the task and add the future to the list
-            futures.add(executor.submit(task));
-        }
-
-        // Wait for all tasks to complete
-        for (Future<Void> future : futures) {
-            try {
-                future.get();  // This blocks until the task is complete, ensuring all tasks finish
-            } catch (InterruptedException | ExecutionException e) {
-                e.printStackTrace();
+                // Submit the task and add the future to the list
+                futures.add(executor.submit(task));
             }
-        }
 
-        // Shut down the executor service
-        executor.shutdown();
-
-        // Write the results to the file after all computations are done
-        try (BufferedWriter writer = new BufferedWriter(new FileWriter(POI_DISTANCES_PATH))) {
-            for (int nodeId = 0; nodeId < numNodes; nodeId++) {
-                StringBuilder line = new StringBuilder();
-                for (int poi = 0; poi < numPois; poi++) {
-                    line.append(distanceResults[poi][nodeId]).append(" ");
+            // Wait for all tasks to complete
+            for (Future<Void> future : futures) {
+                try {
+                    future.get();  // This blocks until the task is complete, ensuring all tasks finish
+                } catch (InterruptedException | ExecutionException e) {
+                    e.printStackTrace();
                 }
-                writer.write(line.toString().trim());
-                writer.newLine();
             }
-        } catch (Exception e) {
-            e.printStackTrace();  // Handle exceptions appropriately
+
+            // Shut down the executor service
+            executor.shutdown();
+
+            // Write the results to the file after all computations are done
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(i == 0 ? POI_FROM_DISTANCES : POI_TO_DISTANCES))) {
+                for (int nodeId = 0; nodeId < numNodes; nodeId++) {
+                    StringBuilder line = new StringBuilder();
+                    for (int poi = 0; poi < numPois; poi++) {
+                        line.append(distanceResults[poi][nodeId]).append(" ");
+                    }
+                    writer.write(line.toString().trim());
+                    writer.newLine();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();  // Handle exceptions appropriately
+            }
+            graph.reverse();
         }
     }
 
@@ -452,7 +464,7 @@ public class ALT {
                 int id = Integer.parseInt(parts[0]);
                 double latitude = Double.parseDouble(parts[1]);
                 double longitude = Double.parseDouble(parts[2]);
-                graph.addNode(id, new Node(id, null, latitude, longitude, Long.MAX_VALUE, Long.MAX_VALUE, false, Long.MAX_VALUE));
+                graph.addNode(id, new Node(id, null, latitude, longitude, Long.MAX_VALUE, Long.MAX_VALUE, false));
             }
         } catch (FileNotFoundException e) {
             System.out.println("File not found");
@@ -479,7 +491,8 @@ public class ALT {
         }
     }
 
-    record PoiType(int code, String name){}
+    record PoiType(int code, String name) {
+    }
 
     private static void readVerticesFromFile(Graph graph) {
         try (BufferedReader reader = new BufferedReader(
@@ -503,29 +516,35 @@ public class ALT {
     }
 
     private void readPOIDistancesFromFile() {
-        try (BufferedReader reader = new BufferedReader(new FileReader(POI_DISTANCES_PATH))) {
-            String line;
-            int i = 0;
-            while ((line = reader.readLine()) != null) {
-                String[] parts = line.trim().split("\\s+");
-                for (int j = 0; j < 4; j++) {
-                    long distance = Long.parseLong(parts[j]);
-                    poiDistanceArr[j][i] = distance;
+        for (int i = 0; i < 2; i++) {
+            try (BufferedReader reader = new BufferedReader(new FileReader(i == 0 ? POI_FROM_DISTANCES : POI_TO_DISTANCES))) {
+                String line;
+                int j = 0;
+                while ((line = reader.readLine()) != null) {
+                    String[] parts = line.trim().split("\\s+");
+                    for (int k = 0; k < 4; k++) {
+                        long distance = Long.parseLong(parts[k]);
+                        if (i == 0) {
+                            poiFromDistanceArr[k][j] = distance;
+                        } else {
+                            poiToDistanceArr[k][j] = distance;
+                        }
+                    }
+                    j++;
                 }
-                i++;
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
             }
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
         }
     }
 
 // ---------------------------------------------------------------------------------------------------------------------
 
-    public Graph getGraph () {
+    public Graph getGraph() {
         return this.graph;
     }
 
-    public int getPoiArrMapping ( int id){
+    public int getPoiArrMapping(int id) {
         return poiMappingTable.get(id).values().iterator().next();
     }
 
@@ -559,7 +578,7 @@ class Graph {
     }
 
     public Vertex[] findNeighbours(Node node) {
-       return vertices[node.id];
+        return vertices[node.id];
     }
 
     // When adding vertices, make them unmodifiable right away
@@ -579,6 +598,41 @@ class Graph {
     public int size() {
         return nodes.length;
     }
+
+    public void reverse() {
+        // Create a temporary structure to hold the reversed edges
+        Vertex[][] reversedVertices = new Vertex[vertices.length][10]; // Assume max 10 neighbors per node
+
+        // Iterate through all nodes and reverse the edges
+        for (int fromNode = 0; fromNode < vertices.length; fromNode++) {
+            Vertex[] edges = vertices[fromNode];
+            if (edges != null) {
+                for (Vertex edge : edges) {
+                    if (edge != null) {
+                        int toNode = edge.toNode;
+
+                        // Add the reversed edge to the temporary structure
+                        for (int i = 0; i < reversedVertices[toNode].length; i++) {
+                            if (reversedVertices[toNode][i] == null) {
+                                reversedVertices[toNode][i] = new Vertex(
+                                        fromNode, // Reverse direction
+                                        edge.driveTime,
+                                        edge.distance,
+                                        edge.speedLimit
+                                );
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Replace the original vertices with the reversed ones
+        for (int i = 0; i < vertices.length; i++) {
+            vertices[i] = reversedVertices[i];
+        }
+    }
 }
 
 class Node {
@@ -589,9 +643,9 @@ class Node {
     long distanceFromStart;
     long distanceToGoal;
     boolean visited;
-    long shortestPathLength;
 
-    public Node(int id, Node previous, double latitude, double longitude, long distanceFromStart, long distanceToGoal, boolean visited, long shortestPathLength) {
+
+    public Node(int id, Node previous, double latitude, double longitude, long distanceFromStart, long distanceToGoal, boolean visited) {
         this.id = id;
         this.previous = previous;
         this.latitude = latitude;
@@ -599,7 +653,6 @@ class Node {
         this.distanceFromStart = distanceFromStart;
         this.distanceToGoal = distanceToGoal;
         this.visited = visited;
-        this.shortestPathLength = shortestPathLength;
     }
 }
 
