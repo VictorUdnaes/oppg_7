@@ -267,7 +267,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		});
 
 		//tegn_poi();
-		tegn_alt();
+		//tegn_alt();
+		tegn_dijkstra();
 
 	} //konstruktør for vindu
 
@@ -292,8 +293,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	public void tegn_dijkstra() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(99999);
-		var node2 = graph.getNode(23953);
+		var node1 = graph.getNode(992999);
+		var node2 = graph.getNode(5600223);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
