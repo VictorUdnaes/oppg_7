@@ -1,5 +1,8 @@
 interessepkt_norden.txt
 kanter_norden.txt
 noder_norden.txt
-poiDistances.txt
+poiFromDistances.txt
+poiToDistances.txt
+
 .idea/
+out/
