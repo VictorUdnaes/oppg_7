@@ -1,6 +1,8 @@
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ALT {
     private final Graph graph;
@@ -254,6 +256,71 @@ public class ALT {
         return path.toArray(new Node[0]);
     }
 
+    public List<Node> findPOIsWithDijkstra(int startNodeID, int desiredTypeCode, int numberOfTypes) {
+        Node startNode = graph.getNode(startNodeID);
+        if (startNode == null) {
+            return null;
+        }
+
+        // Initialize all nodes
+        for (Node node : graph.nodes) {
+            node.distanceFromStart = Long.MAX_VALUE;
+            node.visited = false;
+            node.previous = null;
+        }
+
+        startNode.distanceFromStart = 0;
+
+        PriorityQueue<Node> queue = new PriorityQueue<>(
+            Comparator.comparingLong(node -> node.distanceFromStart)
+        );
+        queue.add(startNode);
+
+        Set<Integer> closedSet = new HashSet<>();
+
+        int foundCount = 0;
+        List<Node> foundNodes = new ArrayList<>();
+
+        while (!queue.isEmpty() && foundCount < numberOfTypes) {
+            Node currentNode = queue.poll();
+
+            if (currentNode.visited) {
+                continue;
+            }
+
+            currentNode.visited = true;
+            closedSet.add(currentNode.id);
+
+            // Check if currentNode is of the desired type using bitwise AND
+            PoiType poiType = pointsOfInterest[currentNode.id];
+            if (poiType != null && (poiType.code & desiredTypeCode) == desiredTypeCode) {
+                foundCount++;
+                foundNodes.add(currentNode);
+            }
+
+            for (Vertex vertex : graph.findNeighbours(currentNode)) {
+                Node neighbour = vertex != null ? graph.nodes[vertex.toNode] : null;
+
+                if (neighbour == null || neighbour.visited) {
+                    continue;
+                }
+
+                long newDistance = currentNode.distanceFromStart + vertex.driveTime; // Prevent integer overflow
+                if (newDistance < neighbour.distanceFromStart) {
+                    neighbour.distanceFromStart = newDistance;
+                    neighbour.previous = currentNode;
+                    queue.add(neighbour); // Add updated neighbor to the queue
+                }
+            }
+        }
+        return foundNodes;
+    }
+
+    public PoiType getPoiType(int nodeId) {
+        return pointsOfInterest[nodeId];
+    }
+
+
     // ---------------------------------------------------------------------------------------------------------------------
     /*
     Separate Dijsktra's algorithm for preprocessing, only used to find distances between nodes and POIs and uses
@@ -479,19 +546,27 @@ public class ALT {
     private void readPointsOfInterestFromFile() {
         try (BufferedReader reader = new BufferedReader(new FileReader(POI_PATH))) {
             String line;
-            reader.readLine(); // Skip first line
+            reader.readLine(); // Skip the first line
+            Pattern pattern = Pattern.compile("^\\s*(\\d+)\\s+(\\d+)\\s+\"(.*?)\"\\s*$");
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.trim().split("\\s+");
-                int id = Integer.parseInt(parts[0]);
-                var poiType = new PoiType(Integer.parseInt(parts[1]), parts[2]);
-                pointsOfInterest[id] = poiType;
+                Matcher matcher = pattern.matcher(line);
+                if (matcher.matches()) {
+                    int id = Integer.parseInt(matcher.group(1));
+                    int type = Integer.parseInt(matcher.group(2));
+                    String name = matcher.group(3);
+                    PoiType poiType = new PoiType(type, name);
+                    pointsOfInterest[id] = poiType;
+                } else {
+                    System.err.println("Line format incorrect: " + line);
+                }
             }
         } catch (IOException e) {
-            //System.out.println("File not found");
+            e.printStackTrace();
         }
     }
 
-    record PoiType(int code, String name) {
+
+    public record PoiType(int code, String name) {
     }
 
     private static void readVerticesFromFile(Graph graph) {
@@ -633,6 +708,8 @@ class Graph {
             vertices[i] = reversedVertices[i];
         }
     }
+
+
 }
 
 class Node {

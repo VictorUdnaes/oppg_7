@@ -26,6 +26,7 @@ import javax.swing.*; //Vinduer
 import javax.swing.event.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.List;
 
 
 //JMapViewer
@@ -88,7 +89,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
  map().removeAllMapMarkers(); //Fjerne alle punkter på en gang.
 */
 
-	public vindu(ALT alt) {
+	public vindu(ALT alt,List<Node> POIs) {
 		super(new GridBagLayout());
 		this.alt = alt;
 		GridBagConstraints c = new GridBagConstraints();
@@ -266,8 +267,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 			}
 		});
 
-		//tegn_poi();
-		tegn_alt();
+		tegn_poi(POIs);
 		//tegn_dijkstra();
 
 	} //konstruktør for vindu
@@ -276,25 +276,26 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		return rad / Math.PI * 180;
 	}
 
-	public void tegn_poi() {
+	public void tegn_poi(List<Node> POIS) {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(3367090);
-		var node2 = graph.getNode(3131924);
-		var node3 = graph.getNode(2815782);
-		var node4 = graph.getNode(5021924);
-		var marker1 = new MapMarkerDot(rutelag, node1.latitude, node1.longitude);
-		var marker2 = new MapMarkerDot(rutelag, node2.latitude, node2.longitude);
-		var marker3 = new MapMarkerDot(rutelag, node3.latitude, node3.longitude);
-		var marker4 = new MapMarkerDot(rutelag, node4.latitude, node4.longitude);
-		marker1.setBackColor(Color.RED);
-		marker2.setBackColor(Color.RED);
-		marker3.setBackColor(Color.RED);
-		marker4.setBackColor(Color.RED);
-		map().addMapMarker(marker1);
-		map().addMapMarker(marker2);
-		map().addMapMarker(marker3);
-		map().addMapMarker(marker4);
+
+		// Iterate over all POIS
+		for (Node poi : POIS) {
+			// Retrieve the node from the graph using its ID
+			var node = graph.getNode(poi.id);
+			if (node != null) {
+				// Create a map marker for the node
+				var marker = new MapMarkerDot(rutelag, node.latitude, node.longitude);
+
+				// Set the marker color
+				marker.setBackColor(Color.RED);
+
+				// Add the marker to the map
+				map().addMapMarker(marker);
+			}
+		}
 	}
+
 
 	public void tegn_dijkstra() {
 		var graph = alt.getGraph();
@@ -523,12 +524,12 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 //Java Navi
 public class Navi {
 
-	public static void gui(ALT alt) {
+	public static void gui(ALT alt, List<Node> POIs) {
 
 		JFrame frame = new JFrame("Kartnavigasjon");
 
 		//Innhold
-		frame.add(new vindu(alt));
+		frame.add(new vindu(alt, POIs));
 
 		//Vis vinduet
 		frame.pack();
@@ -536,13 +537,34 @@ public class Navi {
 	}
 
 	public static void main(String[] args) {
-		//Les inn kart, og
-		//opprett grafen
+// Initialize ALT instance
 		ALT alt = new ALT();
 
-		//...
+		// Define the start node ID, desired type code, and number of POIs to find
+		int startNodeId = 790843; // Replace with your actual start node ID
+		int desiredTypeCode = 8;   // Replace with your actual desired type code
+		int numberOfTypes = 4;
 
+		// Get the start node from the graph
 
-		gui(alt); //Få opp GUI med tiles fra openstreetmap
+		// Run the Dijkstra algorithm to find POIs
+		List<Node> foundPOIS = alt.findPOIsWithDijkstra(startNodeId, desiredTypeCode, numberOfTypes);
+
+		System.out.println("Number of POIs found: " + foundPOIS.size());
+
+		for (Node node : foundPOIS) {
+			System.out.println("ID found for POI: " + node.id);
+
+			// Retrieve the PoiType using the getter method
+			ALT.PoiType poiType = alt.getPoiType(node.id);
+
+			if (poiType != null) {
+				System.out.println("Name of establishment: " + poiType.name());
+			} else {
+				System.out.println("No POI type found for node ID: " + node.id);
+			}
+		}
+		gui(alt, foundPOIS);
+
 	}
 }
