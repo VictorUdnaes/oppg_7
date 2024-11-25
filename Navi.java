@@ -266,6 +266,12 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 			}
 		});
 
+	//------------------------------------------------------------------------------------------------------------------
+		/*
+		 * for å tegne ALT kjør tegn_alt();
+		 * for å tegne Dijkstra kjør tegn_dijkstra();
+		 * kan også kjøres samtidig for å sammenligne rutene
+		 */
 		//tegn_poi();
 		tegn_alt();
 		//tegn_dijkstra();
@@ -298,8 +304,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	public void tegn_dijkstra() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(2948202);
-		var node2 = graph.getNode(7826348);
+		var node1 = graph.getNode(2486870);
+		var node2 = graph.getNode(5394165);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
@@ -311,7 +317,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		var path = alt.runDijkstrasAlgorithm(node1, node2);
 		long endTime = System.nanoTime();
 		System.out.println("Dijkstra time: " + (endTime - startTime)/1000000 + " ms");
-		System.out.println("Dijkstra path size: " + path.length);
+		System.out.println("Dijkstra path size: " + path.size());
 		long length = 0;
 		long lastLength = 0;
 		for (var node : path) {
@@ -319,7 +325,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 			lastLength = node.distanceFromStart;
 		}
 		long totalSeconds = length / 100;
-
+		System.out.println("Total seconds: " + totalSeconds);
 		// Finn timer, minutter og sekunder
 		int hours = (int) (totalSeconds / 3600);
 		int minutes = (int) ((totalSeconds % 3600) / 60);
@@ -345,8 +351,8 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	public void tegn_alt() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(7826348);
-		var node2 = graph.getNode(2948202);
+		var node1 = graph.getNode(2486870);
+		var node2 = graph.getNode(5394165);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
