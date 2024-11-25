@@ -25,6 +25,7 @@ import java.util.Date;
 import javax.swing.*; //Vinduer
 import javax.swing.event.*;
 import java.awt.*;
+import java.util.List;
 import java.awt.event.*;
 
 
@@ -39,20 +40,11 @@ import org.openstreetmap.gui.jmapviewer.tilesources.OsmTileSource;
 
 import org.openstreetmap.gui.jmapviewer.*;
 
-
-
-class Graf {
-	int N, K;
-
-	/* Noder og kanter og sånt, Dijkstras algoritme, osv. */
-
-
-} //Graf slutt
-
-
-
 //GUI
 class vindu extends JPanel implements ActionListener, DocumentListener, JMapViewerEventListener {
+	// Set global to and from nodes
+	private static int fromNode = 2486870;
+	private static int toNode = 5394165;
 	JButton btn_dijkstra = new JButton("Dijkstra");
 	JButton btn_alt = new JButton("ALT");
 	JButton btn_slutt = new JButton("Avslutt");
@@ -77,18 +69,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 
 	Layer rutelag, areallag;
 
-/*
- For å plotte punkter:
- Layer rutelag = treeMap.addLayer("Kjørerute");
- MapMarkerDot navnx = new MapMarkerDot(rutelag, "navn", breddegrad, lengdegrad);
- //navn er optional: new MapMarkerDot(layer, breddegrad, lengdegrad);
-  map().addMapMarker(navnx);
-
- map().removeMapMarker(navnx); //Fjerne et punkt, hvis man gidder...
- map().removeAllMapMarkers(); //Fjerne alle punkter på en gang.
-*/
-
-	public vindu(ALT alt) {
+	public vindu(ALT alt, List<Node> nodes) {
 		super(new GridBagLayout());
 		this.alt = alt;
 		GridBagConstraints c = new GridBagConstraints();
@@ -164,8 +145,6 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		treeMap = new JMapViewerTree("Lag");
 		rutelag = treeMap.addLayer("kjørerute");
 		areallag = treeMap.addLayer("undersøkt areal");
-		// Listen to the map viewer for user operations so components will
-		// receive events and update
 		map().addJMVListener(this);
 
 		JPanel panel = new JPanel(new BorderLayout());
@@ -267,14 +246,14 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		});
 
 	//------------------------------------------------------------------------------------------------------------------
-		/*
-		 * for å tegne ALT kjør tegn_alt();
-		 * for å tegne Dijkstra kjør tegn_dijkstra();
-		 * kan også kjøres samtidig for å sammenligne rutene
-		 */
-		//tegn_poi();
+	/*
+	 * for å tegne ALT kjør tegn_alt();
+	 * for å tegne Dijkstra kjør tegn_dijkstra();
+	 * for å tegne POI kjør tegn_poi(nodes);
+	 */
+		//tegn_poi(nodes);
 		tegn_alt();
-		//tegn_dijkstra();
+		tegn_dijkstra();
 
 	} //konstruktør for vindu
 
@@ -282,30 +261,30 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		return rad / Math.PI * 180;
 	}
 
-	public void tegn_poi() {
+	public void tegn_poi(List<Node> POIS) {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(3367090);
-		var node2 = graph.getNode(3131924);
-		var node3 = graph.getNode(2815782);
-		var node4 = graph.getNode(5021924);
-		var marker1 = new MapMarkerDot(rutelag, node1.latitude, node1.longitude);
-		var marker2 = new MapMarkerDot(rutelag, node2.latitude, node2.longitude);
-		var marker3 = new MapMarkerDot(rutelag, node3.latitude, node3.longitude);
-		var marker4 = new MapMarkerDot(rutelag, node4.latitude, node4.longitude);
-		marker1.setBackColor(Color.RED);
-		marker2.setBackColor(Color.RED);
-		marker3.setBackColor(Color.RED);
-		marker4.setBackColor(Color.RED);
-		map().addMapMarker(marker1);
-		map().addMapMarker(marker2);
-		map().addMapMarker(marker3);
-		map().addMapMarker(marker4);
+
+		// Iterate over all POIS
+		for (Node poi : POIS) {
+			// Retrieve the node from the graph using its ID
+			var node = graph.getNode(poi.id);
+			if (node != null) {
+				// Create a map marker for the node
+				var marker = new MapMarkerDot(rutelag, node.latitude, node.longitude);
+
+				// Set the marker color
+				marker.setBackColor(Color.RED);
+
+				// Add the marker to the map
+				map().addMapMarker(marker);
+			}
+		}
 	}
 
 	public void tegn_dijkstra() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(2486870);
-		var node2 = graph.getNode(5394165);
+		var node1 = graph.getNode(fromNode);
+		var node2 = graph.getNode(toNode);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
@@ -337,22 +316,12 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 			marker.setBackColor(Color.BLUE);
 			map().addMapMarker(marker);
 		}
-		/*
-		for (var node: alt.getGraph().getNodes()) {
-			if (node.visited) {
-				var marker = new MapMarkerDot(areallag, node.latitude, node.longitude);
-				marker.setBackColor(Color.BLUE);
-				map().addMapMarker(marker);
-			}
-		}
-		 */
-
 	}
 
 	public void tegn_alt() {
 		var graph = alt.getGraph();
-		var node1 = graph.getNode(2486870);
-		var node2 = graph.getNode(5394165);
+		var node1 = graph.getNode(fromNode);
+		var node2 = graph.getNode(toNode);
 		var start = new MapMarkerDot(node1.latitude, node1.longitude);
 		var end = new MapMarkerDot(node2.latitude, node2.longitude);
 		start.setBackColor(Color.RED);
@@ -379,17 +348,6 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		int seconds = (int) (totalSeconds % 60);
 		System.out.println("Alt path length: " + hours + " hours, " + minutes + " minutes, " + seconds + " seconds");
 
-		/*
-		var pathDijkstra = alt.runDijkstrasAlgorithm(node1, node2);
-		System.out.println("Dijkstra path size: " + pathDijkstra.length);
-		length = 0;
-		lastLength = 0;
-		for (var node : pathDijkstra) {
-			length += node.distanceFromStart - lastLength;
-			lastLength = node.distanceFromStart;
-		}
-		System.out.println("Dijkstra path length: " + length);
-		*/
 
 		Layer rutelag = treeMap.addLayer("Kjørerute");
 		for (var node : path) {
@@ -397,11 +355,6 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 			marker.setBackColor(Color.YELLOW);
 			map().addMapMarker(marker);
 		}
-	}
-
-	//Tegn det gjennomsøkte arealet, altså alle noder med forgjengere.
-	public void tegn_areal() {
-		/* ... */
 	}
 
 	//Knapper
@@ -426,28 +379,6 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 		Date tid2 = new Date();
 		map().removeAllMapMarkers();
 
-/*
-    Vise frem kjøretid for bilen, hvis målet ble funnet:
-
-  if (mål.forgjenger == -1) {
-   tur += "  Fant ikke veien!";
-  } else {
-   int tid = mål.dist;
-   int tt = tid / 360000; tid -= 360000 * tt;
-   int mm = tid / 6000; tid -= 6000 * mm;
-   int ss = tid / 100;
-   int hs = tid % 100;
-   tur = String.format("%s Kjøretid %d:%02d:%02d,%02d   ()", tur, tt, mm, ss, hs);
-   tegn_ruta();
-  }
-  float sek = (float)(tid2.getTime() - tid1.getTime()) / 1000;
-  alg = String.format("%s prosesserte %,d noder på %2.3fs. %2.0f noder/ms", alg, noder, sek, noder/sek/1000);
-  lbl_tur.setText(tur);
-  lbl_alg.setText(alg);
-  System.out.println(tur);
-  System.out.println(alg);
-  System.out.println();
-*/
 	}
 
 	//Skriving i tekstfelt
@@ -463,45 +394,7 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 	//Finn hvilket felt som ble endret.
 	//Slå opp nodenumre om mulig/ønskelig
 	void stedsoppslag() {
-/*
-  String txt = txt_fra.getText();
-  if (!txt.equals(gml_fra)) {
-   //Endret fra-felt
-   gml_fra = txt;
-   if (txt.matches("[0-9]+")) {
-    G.startnode = Integer.parseInt(txt);
-   } else {
-    Integer I = G.punkter.get(txt);
-    if (I != null) {
-     G.startnode = I.intValue();
-    } else {
-     G.startnode = -1;
-    }
-   }
-   lbl_fra.setText(Integer.toString(G.startnode));
-  }
 
-  txt = txt_til.getText();
-  if (!txt.equals(gml_til)) {
-   //Endret til-felt
-   gml_til = txt;
-   if (txt.matches("[0-9]+")) {
-    G.målnode = Integer.parseInt(txt);
-   } else {
-    Integer I = G.punkter.get(txt);
-    if (I != null) {
-     G.målnode = I.intValue();
-    } else {
-     G.målnode = -1;
-    }
-   }
-   lbl_til.setText(Integer.toString(G.målnode));
-  }
-
-  boolean klart = (G.målnode > 0 && G.startnode > 0);
-  btn_dijkstra.setEnabled(klart);
-  btn_alt.setEnabled(klart);
-*/
 	}
 
 	//Noe skjer med kartet.
@@ -529,12 +422,12 @@ class vindu extends JPanel implements ActionListener, DocumentListener, JMapView
 //Java Navi
 public class Navi {
 
-	public static void gui(ALT alt) {
+	public static void gui(ALT alt, List<Node> nodes) {
 
 		JFrame frame = new JFrame("Kartnavigasjon");
 
 		//Innhold
-		frame.add(new vindu(alt));
+		frame.add(new vindu(alt, nodes));
 
 		//Vis vinduet
 		frame.pack();
@@ -542,13 +435,29 @@ public class Navi {
 	}
 
 	public static void main(String[] args) {
-		//Les inn kart, og
-		//opprett grafen
 		ALT alt = new ALT();
 
-		//...
+		int startNodeId = 790843;
+		int desiredTypeCode = 8;
+		int numberOfTypes = 4;
 
+		List<Node> foundPOIS = alt.findPOIsWithDijkstra(startNodeId, desiredTypeCode, numberOfTypes);
 
-		gui(alt); //Få opp GUI med tiles fra openstreetmap
+		System.out.println("Number of POIs found: " + foundPOIS.size());
+
+		for (Node node : foundPOIS) {
+			System.out.println("ID found for POI: " + node.id);
+
+			// Retrieve the PoiType using the getter method
+			ALT.PoiType poiType = alt.getPoiType(node.id);
+
+			if (poiType != null) {
+				System.out.println("Name of establishment: " + poiType.name);
+			} else {
+				System.out.println("No POI type found for node ID: " + node.id);
+			}
+		}
+		gui(alt, foundPOIS);
+
 	}
 }

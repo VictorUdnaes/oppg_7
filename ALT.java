@@ -1,5 +1,7 @@
 import java.io.*;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ALT {
     private final Graph graph;
@@ -27,7 +29,6 @@ public class ALT {
     }
 
     public void setupPOIDistances() {
-        findLandmarks();
         File poiFromFile = new File(POI_FROM_DISTANCES);
         File poiToFile = new File(POI_TO_DISTANCES);
         if (poiFromFile.exists() && poiToFile.exists()) {
@@ -93,7 +94,6 @@ public class ALT {
             return null;
         }
 
-        // Initialize all nodes
         for (Node node : graph.getNodes()) {
             node.distanceFromStart = Long.MAX_VALUE;
             node.visited = false;
@@ -138,15 +138,13 @@ public class ALT {
             current = current.previous;
         }
         if (current == null) {
-            return null; // No path
+            return null;
         }
         path.add(startNode);
         Collections.reverse(path);
         System.out.println("Amount of nodes checked: " + nodesChecked);
         return path;
     }
-
-    // Helper methods and classes
 
     private void readValuesFromFiles() {
         System.out.println("Loading nodes and vertices from file...");
@@ -157,10 +155,6 @@ public class ALT {
         System.out.println("Successfully loaded nodes and vertices from file");
     }
 
-    private void findLandmarks() {
-        // Landmarks are predefined in landmarkIds
-        // This method can be extended to dynamically select landmarks if needed
-    }
 
     private void computeDistancesFromLandmarks() {
         int numLandmarks = landmarkIds.size();
@@ -261,6 +255,70 @@ public class ALT {
         }
     }
 
+    public List<Node> findPOIsWithDijkstra(int startNodeID, int desiredTypeCode, int numberOfTypes) {
+        Node startNode = graph.getNode(startNodeID);
+        if (startNode == null) {
+            return null;
+        }
+
+        // Initialize all nodes
+        for (Node node : graph.getNodes()) {
+            node.distanceFromStart = Long.MAX_VALUE;
+            node.visited = false;
+            node.previous = null;
+        }
+
+        startNode.distanceFromStart = 0;
+
+        PriorityQueue<Node> queue = new PriorityQueue<>(
+                Comparator.comparingLong(node -> node.distanceFromStart)
+        );
+        queue.add(startNode);
+
+        Set<Integer> closedSet = new HashSet<>();
+
+        int foundCount = 0;
+        List<Node> foundNodes = new ArrayList<>();
+
+        while (!queue.isEmpty() && foundCount < numberOfTypes) {
+            Node currentNode = queue.poll();
+
+            if (currentNode.visited) {
+                continue;
+            }
+
+            currentNode.visited = true;
+            closedSet.add(currentNode.id);
+
+            // Check if currentNode is of the desired type using bitwise AND
+            PoiType poiType = pointsOfInterest[currentNode.id];
+            if (poiType != null && (poiType.code & desiredTypeCode) == desiredTypeCode) {
+                foundCount++;
+                foundNodes.add(currentNode);
+            }
+
+            for (Vertex vertex : graph.findNeighbours(currentNode)) {
+                Node neighbour = vertex != null ? graph.getNodes()[vertex.toNode] : null;
+
+                if (neighbour == null || neighbour.visited) {
+                    continue;
+                }
+
+                long newDistance = currentNode.distanceFromStart + vertex.driveTime; // Prevent integer overflow
+                if (newDistance < neighbour.distanceFromStart) {
+                    neighbour.distanceFromStart = newDistance;
+                    neighbour.previous = currentNode;
+                    queue.add(neighbour); // Add updated neighbor to the queue
+                }
+            }
+        }
+        return foundNodes;
+    }
+
+    public PoiType getPoiType(int nodeId) {
+        return pointsOfInterest[nodeId];
+    }
+
     private void readPOIDistancesFromFile() {
         int numLandmarks = landmarkIds.size();
         int numNodes = graph.size();
@@ -346,8 +404,6 @@ public class ALT {
         }
     }
 
-    // Reading files methods
-
     private static void readNodesFromFile(Graph graph) {
         try (BufferedReader reader = new BufferedReader(new FileReader(NODE_PATH))) {
             String line;
@@ -385,19 +441,26 @@ public class ALT {
     private void readPointsOfInterestFromFile() {
         try (BufferedReader reader = new BufferedReader(new FileReader(POI_PATH))) {
             String line;
-            reader.readLine(); // Skip first line
+            reader.readLine(); // Skip the first line
+            Pattern pattern = Pattern.compile("^\\s*(\\d+)\\s+(\\d+)\\s+\"(.*?)\"\\s*$");
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.trim().split("\\s+");
-                int id = Integer.parseInt(parts[0]);
-                PoiType poiType = new PoiType(Integer.parseInt(parts[1]), parts[2]);
-                pointsOfInterest[id] = poiType;
+                Matcher matcher = pattern.matcher(line);
+                if (matcher.matches()) {
+                    int id = Integer.parseInt(matcher.group(1));
+                    int type = Integer.parseInt(matcher.group(2));
+                    String name = matcher.group(3);
+                    PoiType poiType = new PoiType(type, name);
+                    pointsOfInterest[id] = poiType;
+                } else {
+                    System.err.println("Line format incorrect: " + line);
+                }
             }
         } catch (IOException e) {
-            System.out.println("Error reading points of interest from file: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    private static class PoiType {
+    static class PoiType {
         int code;
         String name;
 
